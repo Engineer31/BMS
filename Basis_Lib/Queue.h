@@ -30,7 +30,6 @@ extern U8 FQueueInsert( FQueueStruct *Obj, F32 c);
 extern U8 FQueueReplace(FQueueStruct *Obj, F32 c, U16 Num);
 extern F32 FQueueRead( FQueueStruct *Obj, U16 Num);
 extern U8 FQueueDataInit(FQueueStruct *Obj, F32 c);
-
 struct _LQueueStruct
 {
     S32 *Data;
