@@ -1,0 +1,214 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+			[
+				"i",
+				"inc	#include \"…\""
+			],
+			[
+				"inc",
+				"include"
+			]
+		]
+	},
+	"buffers":
+	[
+		{
+			"contents": "#include \"User.h\"\n\nDataBufStruct UPort1_RxDataBuf={0,0,0};  //´®¿Ú1½ÓÊÕ»º´æ\nLiBATStruct LiBAT[BAT_NUMBER];\n\nint main(void)\n{\n    SysDriverInit();\n\n	LED_ON(LED1);\n	while(Read_Store_State()!=0x01)\n	{\n		;\n	}//µÈ´ý³õÊ¼Êý¾ÝÅäÖÃ\n	LED_OFF(LED1);\n\n	Send_OCV_SOC();\n\n//	LiBAT_Init(LiBAT,BAT_NUMBER);//ï®µç³Ø³õÊ¼»¯	\n\n    while(1)\n    {\n     ;\n    }\n   \n}\n\nvoid SysDriverInit(void)\n{\n    /*MCUÓ²¼þ³õÊ¼»¯*/\n\n    /*µÎ´ðÊ±ÖÓ¶¨Ê±Æ÷³õÊ¼»¯*/\n    SysTick_Init();\n     \n    /*UART´®¿Ú³õÊ¼»¯*/\n    UART_DriverInit(CHANNEL1, 115200, 256);\n    UART_SetRxISRFunc(CHANNEL1,UPort1_RxData);\n\n    UART_DriverInit(CHANNEL2,115200,256);\n    UART_SetRxISRFunc(CHANNEL2,UPort2_RxData);\n    \n    /*¶¨Ê±Æ÷ÖÐ¶Ï³õÊ¼»¯*/\n    TIM2_InterruptInit(TIME2_INTERRUPT_TIME);\n    TIM2_SetTimeInterruptISR(Timer2_InterruptHandler); //\n    TIM2_StartTime();\n\n    TIM3_InterruptInit(TIME3_INTERRUPT_TIME);\n    TIM3_SetTimeInterruptISR(Timer3_InterruptHandler); //\n    TIM3_StartTime();  \n\n    TIM4_InterruptInit(TIME4_INTERRUPT_TIME);\n    TIM4_SetTimeInterruptISR(Timer4_InterruptHandler); //\n    TIM4_StartTime();\n\n\n    /*Devices³õÊ¼»¯*/\n\n    /*LED³õÊ¼»¯*/\n    LED_DriverInit(LED1 | LED2 | LED3 | LED4 | LED5 | LED6 | LED7);\n\n    /*ADS8341³õÊ¼»¯*/\n	ADS8341_Init();\n\n	/*BQ76925³õÊ¼»¯*/\n//	BQ76925_Init();\n\n}\n\n/*½ÓÊÕÊý¾Ý´æÈë»º´æ*/\nvoid UPort1_RxData(U8 rxdata)\n{\n	if(UPort1_RxDataBuf.count<DataBufSize)\n	{\n	 	UPort1_RxDataBuf.data[UPort1_RxDataBuf.count++]=rxdata; \n	}\n	\n}\n/*½ÓÊÕÊý¾Ý½â°ü´¦Àí*/\nvoid UNPackage(void)\n{\n     U8 i=0;\n	 U8 j=0;\n	 U8 Length=0;\n\nwhile(1)\n{\n      if(UPort1_RxDataBuf.count<5)	  //Êý¾ÝÁ¿²»×ã£¬ÍË³ö\n	      break;\n\n     /*Ñ°ÕÒÖ¡Í·*/\n	 for(i=0;i<UPort1_RxDataBuf.count-1;i++)\n	 {\n	     if((UPort1_RxDataBuf.data[i]==0xA5)&&(UPort1_RxDataBuf.data[i+1]==0x5A))\n		 {\n		     \n		     break;\n		 }\n	 }\n	 \n	 /*È¥³ý·ÏÊý¾Ý*/	\n	 UPort1_RxDataBuf.count=UPort1_RxDataBuf.count-i;\n	 for(j=0;j<UPort1_RxDataBuf.count;j++)\n	 {\n	     UPort1_RxDataBuf.data[j]=UPort1_RxDataBuf.data[i+j]; \n	 }\n\n	 /*»ñÈ¡°üÊý¾Ý³¤¶È£¨×Ü³¤¶È£©*/\n	 if(UPort1_RxDataBuf.count>2)\n	 {\n     Length=UPort1_RxDataBuf.data[2];\n	 }\n\n	 Length=Length-3;				 //Æ¥Åä\n\n	 /*½â°ü*/\n	 if(UPort1_RxDataBuf.count>=(Length+3))\n	 {\n\n\n	    if(UPort1_RxDataBuf.data[3+Length]==CheckSum(UPort1_RxDataBuf.data,2+Length))\n	    {\n		   /*½â°üÊý¾Ý´¦Àí*/\n		   UPort1_RxData_Process(&UPort1_RxDataBuf.data[3],Length-4);\n\n	    }\n\n		/*¶ª°ü*/\n		for(i=0;i<UPort1_RxDataBuf.count-1;i++)\n		{\n		UPort1_RxDataBuf.data[i]=UPort1_RxDataBuf.data[i+1];\n		}\n	 }\n}\n}\n\nvoid UPort1_RxData_Process(U8 * pdata,U8 length)\n{\n	if(pdata[0]==0x01)\n	{\n		Store_OCV_SOC(pdata,length);\n	}\n	else if(pdata[0]==0x02)\n	{\n		Store_All_Ri(pdata,length);\n	}\n	else if(pdata[0]==0x03)\n	{\n		Store_Qmax(pdata,length);\n	}\n	else if(pdata[0]==0x04)\n	{\n	    Store_QLine(pdata,length);\n	}\n	else \n	{\n\n	}\n}\n\n\n\nvoid UPort2_RxData(U8 rxdata)\n{\n\n}\n\nvoid Timer2_InterruptHandler(void)\n{\n  	 LiBAT_I_Integral(TIME2_INTERRUPT_TIME);	//µçÁ÷»ý·Ö ¸üÐÂI Q \n}\n\nvoid Timer3_InterruptHandler(void)\n{\n     UNPackage(); 							   //Êý¾Ý½â°ü´¦Àí\n}\n\nvoid Timer4_InterruptHandler(void)\n{\n	 LiBAT_Update();						//ï®µç³Ø×´Ì¬¸üÐÂ V SOC  \n}\n",
+			"file": "User/main.c",
+			"file_size": 3255,
+			"file_write_time": 130578495567755142,
+			"settings":
+			{
+				"buffer_size": 3077,
+				"line_ending": "Windows"
+			}
+		}
+	],
+	"build_system": "",
+	"command_palette":
+	{
+		"height": 392.0,
+		"selected_items":
+		[
+			[
+				"ins",
+				"Package Control: Install Package"
+			],
+			[
+				"install",
+				"Package Control: Install Package"
+			],
+			[
+				"in",
+				"Package Control: Install Package"
+			]
+		],
+		"width": 528.0
+	},
+	"console":
+	{
+		"height": 146.0
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"file_history":
+	[
+		"/E/Project/PowerManagement/PowerManagement2.0/软件/Battery/User/LiBAT.c",
+		"/E/Project/PowerManagement/PowerManagement2.0/软件/Battery/Project/Listing/PW.map",
+		"/E/Project/PowerManagement/PowerManagement2.0/软件/Battery/Basis_Lib/Memory.c",
+		"/E/Project/PowerManagement/PowerManagement2.0/软件/Battery/Basis_Lib/Memory.h",
+		"/E/Project/PowerManagement/PowerManagement2.0/软件/Battery/User/User.h",
+		"/E/Project/PowerManagement/PowerManagement2.0/软件/Battery/Basis_Lib/Function.h",
+		"/E/Project/PowerManagement/PowerManagement2.0/软件/Battery/Basis_Lib/Function.c",
+		"/E/Project/PowerManagement/PowerManagement2.0/软件/Battery/User/main.c",
+		"/E/Project/PowerManagement/PowerManagement2.0/软件/Battery/User/LiBAT.h",
+		"/C/Users/Administrator.OQCS1UK4QW7VHUT/AppData/Roaming/Sublime Text 2/Packages/Default/Preferences.sublime-settings",
+		"/E/Project/PowerManagement/PowerManagement2.0/软件/Battery/User/Param_Store.c",
+		"/E/Project/PowerManagement/PowerManagement2.0/软件/Battery/User/Param_Store.h",
+		"/E/Project/PowerManagement/PowerManagement2.0/软件/Battery/User/Test.c",
+		"/E/Project/PowerManagement/PowerManagement2.0/软件/Battery/User/Test.h"
+	],
+	"find":
+	{
+		"height": 34.0
+	},
+	"find_in_files":
+	{
+		"height": 0.0,
+		"where_history":
+		[
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": false,
+		"find_history":
+		[
+			"SysDriverInit",
+			"Send_OCV_SOC"
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+		],
+		"reverse": false,
+		"show_context": true,
+		"use_buffer2": true,
+		"whole_word": false,
+		"wrap": false
+	},
+	"groups":
+	[
+		{
+			"selected": 0,
+			"sheets":
+			[
+				{
+					"buffer": 0,
+					"file": "User/main.c",
+					"settings":
+					{
+						"buffer_size": 3077,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								2555,
+								2555
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/C++/C.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 216.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				}
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 0.0
+	},
+	"input":
+	{
+		"height": 0.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"replace":
+	{
+		"height": 0.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"selected_items":
+		[
+			[
+				"ma",
+				"User/main.c"
+			],
+			[
+				"",
+				"User/LiBAT.h"
+			]
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 0.0,
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"show_minimap": true,
+	"show_open_files": false,
+	"show_tabs": true,
+	"side_bar_visible": true,
+	"side_bar_width": 150.0,
+	"status_bar_visible": true
+}
